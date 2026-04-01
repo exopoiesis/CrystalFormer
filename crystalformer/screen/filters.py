@@ -116,7 +116,7 @@ class CompositionFilter(Filter):
     def __call__(self, structure) -> bool:
         if not self.elements:
             return True
-        present = {str(sp) for sp in structure.species}
+        present = {sp.symbol for sp in structure.species}
         return self.elements.issubset(present)
 
 
@@ -195,12 +195,13 @@ def resolve_filter(spec: str | Filter) -> Filter:
         # Type coercion
         if key == "elements":
             kwargs[key] = val.split("+")
-        elif "." in val:
-            kwargs[key] = float(val)
         else:
             try:
                 kwargs[key] = int(val)
             except ValueError:
-                kwargs[key] = val
+                try:
+                    kwargs[key] = float(val)
+                except ValueError:
+                    kwargs[key] = val
 
     return cls(**kwargs)

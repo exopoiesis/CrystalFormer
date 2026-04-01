@@ -1,7 +1,13 @@
 """Tests for crystalformer.screen — ScreeningPipeline and built-in filters."""
 
+import csv
+from pathlib import Path
+
 import pytest
 import numpy as np
+
+pytest.importorskip("pymatgen", reason="pymatgen required for screening tests")
+
 from pymatgen.core import Structure, Lattice
 
 from crystalformer.screen import ScreeningPipeline, ScreeningResult
@@ -278,6 +284,28 @@ class TestScreeningResult:
 #  String spec parsing                                                #
 # ------------------------------------------------------------------ #
 
+class TestCompositionFilterOxidationStates:
+    """Regression: CompositionFilter must work with Species/oxidation states."""
+
+    def test_oxidized_species_match(self):
+        struct = Structure(
+            Lattice.cubic(5.0),
+            ["Fe2+", "O2-"],
+            [[0, 0, 0], [0.5, 0.5, 0.5]],
+        )
+        f = CompositionFilter(elements=["Fe", "O"])
+        assert f(struct) is True
+
+    def test_mixed_species_and_elements(self):
+        struct = Structure(
+            Lattice.cubic(5.0),
+            ["Fe2+", "S"],
+            [[0, 0, 0], [0.5, 0.5, 0.5]],
+        )
+        f = CompositionFilter(elements=["Fe"])
+        assert f(struct) is True
+
+
 class TestStringSpecParsing:
     def test_validity_string(self, dense_nacl):
         pipe = ScreeningPipeline(["validity"])
@@ -316,3 +344,93 @@ class TestStringSpecParsing:
     def test_unknown_filter_raises(self):
         with pytest.raises(ValueError, match="Unknown filter"):
             ScreeningPipeline(["nonexistent_filter"])
+
+    def test_scientific_notation_float(self, open_cubic):
+        """Regression: '1e-3' must parse as float, not stay as string."""
+        pipe = ScreeningPipeline(["voronoi:r_min=1e-3"])
+        result = pipe.run([open_cubic])
+        assert len(result.survivors) == 1
+
+    def test_negative_scientific_notation(self, dense_nacl):
+        pipe = ScreeningPipeline(["density:min_density=-1e2"])
+        result = pipe.run([dense_nacl])
+        assert len(result.survivors) == 1
+
+    def test_bad_numeric_spec_raises_on_use(self, open_cubic):
+        """Non-numeric value for a numeric param causes error at runtime."""
+        pipe = ScreeningPipeline(["voronoi:r_min=abc"])
+        with pytest.raises(TypeError):
+            pipe.run([open_cubic])
+
+
+# ------------------------------------------------------------------ #
+#  CLI smoke tests                                                     #
+# ------------------------------------------------------------------ #
+
+def _make_csv(tmp_path, rows=None, fieldnames=None):
+    """Helper: write a CSV with a 'cif' column from Structure objects."""
+    if rows is None:
+        s = Structure(Lattice.cubic(5.0), ["Si"], [[0, 0, 0]])
+        rows = [{"cif": str(s.as_dict())}]
+    if fieldnames is None:
+        fieldnames = list(rows[0].keys())
+    csv_path = tmp_path / "test.csv"
+    with open(csv_path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(rows)
+    return str(csv_path)
+
+
+class TestScreenCLI:
+    """CLI-level tests for ``python -m crystalformer.screen``."""
+
+    def test_smoke_validity(self, tmp_path):
+        from crystalformer.screen.__main__ import main
+        csv_path = _make_csv(tmp_path)
+        output = str(tmp_path / "out.csv")
+        main([csv_path, "-o", output, "--filters", "validity"])
+        assert Path(output).exists()
+        with open(output) as f:
+            reader = csv.DictReader(f)
+            rows = list(reader)
+        assert len(rows) == 1
+
+    def test_composition_without_elements_exits(self, tmp_path):
+        from crystalformer.screen.__main__ import main
+        csv_path = _make_csv(tmp_path)
+        with pytest.raises(SystemExit) as exc_info:
+            main([csv_path, "--filters", "composition"])
+        assert exc_info.value.code == 2
+
+    def test_unknown_filter_exits(self, tmp_path):
+        from crystalformer.screen.__main__ import main
+        csv_path = _make_csv(tmp_path)
+        with pytest.raises(SystemExit) as exc_info:
+            main([csv_path, "--filters", "bogus"])
+        assert exc_info.value.code == 2
+
+    def test_missing_cif_column_exits(self, tmp_path):
+        from crystalformer.screen.__main__ import main
+        csv_path = _make_csv(
+            tmp_path,
+            rows=[{"other": "data"}],
+            fieldnames=["other"],
+        )
+        with pytest.raises(SystemExit) as exc_info:
+            main([csv_path, "--filters", "validity"])
+        assert exc_info.value.code == 1
+
+    def test_malformed_cif_row_skipped(self, tmp_path):
+        from crystalformer.screen.__main__ import main
+        s = Structure(Lattice.cubic(5.0), ["Si"], [[0, 0, 0]])
+        csv_path = _make_csv(tmp_path, rows=[
+            {"cif": str(s.as_dict())},
+            {"cif": "NOT_VALID_DICT"},
+        ])
+        output = str(tmp_path / "out.csv")
+        main([csv_path, "-o", output, "--filters", "validity"])
+        assert Path(output).exists()
+        with open(output) as f:
+            rows = list(csv.DictReader(f))
+        assert len(rows) == 1

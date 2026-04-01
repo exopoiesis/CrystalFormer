@@ -59,6 +59,11 @@ class TestParseCompositionBias:
         with pytest.raises(ValueError, match="Invalid bias format"):
             parse_composition_bias("Fe2.0")  # missing colon
 
+    def test_element_outside_atom_types_raises(self):
+        """Regression: element index >= atom_types must raise, not silently drop."""
+        with pytest.raises(ValueError, match="outside model vocabulary"):
+            parse_composition_bias("Fe:2.0", atom_types=10)  # Fe is index 26
+
     def test_whitespace_tolerance(self):
         bias = parse_composition_bias("  Fe : 2.0 , S : 1.5  ")
         assert bias[element_dict["Fe"]] == pytest.approx(2.0)

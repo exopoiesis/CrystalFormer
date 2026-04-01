@@ -51,10 +51,11 @@ def _build_filters(args) -> list:
         elif name == "composition":
             if not args.elements:
                 print(
-                    "WARNING: composition filter requires --elements",
+                    "Error: composition filter requires --elements",
                     file=sys.stderr,
                 )
-            filters.append(CompositionFilter(elements=args.elements or []))
+                sys.exit(2)
+            filters.append(CompositionFilter(elements=args.elements))
         elif name == "density":
             filters.append(
                 DensityFilter(
@@ -63,7 +64,12 @@ def _build_filters(args) -> list:
                 )
             )
         else:
-            print(f"WARNING: unknown filter {name!r}, skipping", file=sys.stderr)
+            print(
+                f"Error: unknown filter {name!r}. "
+                f"Available: validity, voronoi, percolation, composition, density",
+                file=sys.stderr,
+            )
+            sys.exit(2)
 
     return filters
 
@@ -72,6 +78,15 @@ def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(
         prog="python -m crystalformer.screen",
         description="Screen generated crystal structures through a filter pipeline.",
+        epilog=(
+            "Required combinations:\n"
+            "  --filters composition  requires --elements\n\n"
+            "Examples:\n"
+            "  %(prog)s structures.csv --filters validity,voronoi\n"
+            "  %(prog)s structures.csv --filters validity,composition "
+            "--elements Fe S\n"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("input", help="Path to CSV with a 'cif' column.")
     parser.add_argument(

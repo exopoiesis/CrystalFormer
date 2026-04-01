@@ -6,6 +6,9 @@ geometrically obvious and verifiable by inspection.
 
 import pytest
 import numpy as np
+
+pytest.importorskip("pymatgen", reason="pymatgen required for analysis tests")
+
 from pymatgen.core import Structure, Lattice
 
 from crystalformer.analysis import PercolationAnalyzer, PercolationResult

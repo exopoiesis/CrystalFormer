@@ -4,8 +4,14 @@ Test structures are hand-built with known geometric properties so that
 the analysis output can be verified against ground truth.
 """
 
+import csv
+from pathlib import Path
+
 import pytest
 import numpy as np
+
+pytest.importorskip("pymatgen", reason="pymatgen required for analysis tests")
+
 from pymatgen.core import Structure, Lattice
 
 from crystalformer.analysis import VoronoiAnalyzer, VoronoiResult
@@ -220,3 +226,43 @@ class TestBatchAnalysis:
         assert single.max_void_radius == pytest.approx(batch.max_void_radius)
         assert single.void_fraction == pytest.approx(batch.void_fraction)
         assert single.layeredness_score == pytest.approx(batch.layeredness_score)
+
+
+# ------------------------------------------------------------------ #
+#  CLI smoke test for ``python -m crystalformer.analysis``             #
+# ------------------------------------------------------------------ #
+
+class TestAnalysisCLI:
+    def test_smoke_voronoi_only(self, tmp_path, open_cubic):
+        from crystalformer.analysis.__main__ import main as analysis_main
+
+        csv_path = tmp_path / "structs.csv"
+        with open(csv_path, "w", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=["cif"])
+            writer.writeheader()
+            writer.writerow({"cif": str(open_cubic.as_dict())})
+
+        output = str(tmp_path / "out.csv")
+        analysis_main([str(csv_path), "-o", output, "--voronoi-only"])
+        assert Path(output).exists()
+        with open(output) as f:
+            rows = list(csv.DictReader(f))
+        assert len(rows) == 1
+        assert "max_void_radius" in rows[0]
+
+    def test_smoke_full_analysis(self, tmp_path, open_cubic):
+        from crystalformer.analysis.__main__ import main as analysis_main
+
+        csv_path = tmp_path / "structs.csv"
+        with open(csv_path, "w", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=["cif"])
+            writer.writeheader()
+            writer.writerow({"cif": str(open_cubic.as_dict())})
+
+        output = str(tmp_path / "out.csv")
+        analysis_main([str(csv_path), "-o", output, "--check-percolation"])
+        assert Path(output).exists()
+        with open(output) as f:
+            rows = list(csv.DictReader(f))
+        assert len(rows) == 1
+        assert "percolation_dim" in rows[0]

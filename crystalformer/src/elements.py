@@ -67,8 +67,12 @@ def parse_composition_bias(bias_string, atom_types=119):
         if element not in element_dict:
             raise ValueError(f"Unknown element: {element!r}")
         idx = element_dict[element]
-        if idx < atom_types:
-            bias[idx] = float(weight)
+        if idx >= atom_types:
+            raise ValueError(
+                f"Element {element!r} (index {idx}) is outside model "
+                f"vocabulary (atom_types={atom_types})"
+            )
+        bias[idx] = float(weight)
     return bias
 
 
