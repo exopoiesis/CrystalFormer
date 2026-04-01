@@ -61,12 +61,17 @@ def sample_x(key, h_x, Kx, top_p, temperature, batchsize):
     return key, x 
 
 
-def make_sample_crystal(transformer, n_max, atom_types, wyck_types, Kx, Kl, w_mask, top_p, temperature, K=0, g=None, atom_mask=None, spg_mask=None):
+def make_sample_crystal(transformer, n_max, atom_types, wyck_types, Kx, Kl, w_mask, top_p, temperature, K=0, g=None, atom_mask=None, spg_mask=None, composition_bias=None):
 
     if atom_mask is None:
         user_atom_mask = jnp.ones((atom_types,), dtype=bool)
     else:
         user_atom_mask = atom_mask.astype(bool)
+
+    if composition_bias is not None:
+        _composition_bias = jnp.asarray(composition_bias, dtype=jnp.float32)
+    else:
+        _composition_bias = jnp.zeros((atom_types,))
 
     @partial(jax.jit, static_argnums=2)
     def sample_crystal(key, params, batchsize, composition):
@@ -98,7 +103,7 @@ def make_sample_crystal(transformer, n_max, atom_types, wyck_types, Kx, Kl, w_ma
             a_logit = h_al[:, :atom_types]
         
             key, subkey = jax.random.split(key)
-            a_logit = a_logit + jnp.where(atom_mask, 0.0, -1e10) # enhance the probability of masked atoms (do not need to normalize since we only use it for sampling, not computing logp)
+            a_logit = a_logit + jnp.where(atom_mask, 0.0, -1e10) + _composition_bias # enhance the probability of masked atoms (do not need to normalize since we only use it for sampling, not computing logp)
             a = sample_top_p(subkey, a_logit, top_p, temperature)
             A = A.at[:, i].set(a)
         

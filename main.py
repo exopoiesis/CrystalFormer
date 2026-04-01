@@ -77,6 +77,7 @@ group.add_argument('--save_path', type=str, default=None, help='path to save the
 group.add_argument('--output_filename', type=str, default='output.csv', help='outfile to save sampled structures')
 group.add_argument('--verbose', type=int, default=0, help='verbose level')
 group.add_argument('--remove_radioactive', action='store_true', help='remove radioactive elements and noble gas, only valid when formula is None')
+group.add_argument('--composition_bias', type=str, default=None, help='Soft bias for atom types during sampling, e.g. "Fe:2.0,S:1.5,O:-1.0". Positive values increase probability, negative decrease.')
 
 
 args = parser.parse_args()
@@ -205,7 +206,13 @@ else:
     else:
         print ('targeting spacegroup No.', args.spacegroup)
 
-    sample_crystal = make_sample_crystal(transformer, args.n_max, args.atom_types, args.wyck_types, args.Kx, args.Kl, w_mask, args.top_p, args.temperature, args.K, args.spacegroup, atom_mask)
+    comp_bias = None
+    if args.composition_bias is not None:
+        from crystalformer.src.elements import parse_composition_bias
+        comp_bias = jnp.array(parse_composition_bias(args.composition_bias, args.atom_types))
+        print('composition bias:', args.composition_bias)
+
+    sample_crystal = make_sample_crystal(transformer, args.n_max, args.atom_types, args.wyck_types, args.Kx, args.Kl, w_mask, args.top_p, args.temperature, args.K, args.spacegroup, atom_mask, composition_bias=comp_bias)
 
     if args.seed is not None:
         key = jax.random.PRNGKey(args.seed) # reset key for sampling if seed is provided
