@@ -19,10 +19,14 @@ classifiers = [
     "Operating System :: POSIX :: Linux"
 ]
 dependencies = [
+    "jax==0.7.2",
     "dm-haiku==0.0.15",
     "optax==0.2.6",
     "pyxtal==1.1.1"
 ]
+
+[project.optional-dependencies]
+analysis = ["pymatgen>=2024.1.1", "scipy>=1.10"]
 
 [project.urls]
 Homepage = "https://github.com/deepmodeling/CrystalFormer"

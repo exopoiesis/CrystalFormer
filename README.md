@@ -45,6 +45,7 @@ We provide a pretrained checkpoint to support both functionalities. No architect
 - [De Novo Generation](#de-novo-generation)
   - [Sample](#sample-1)
   - [Evaluate](#evaluate)
+- [Structural Analysis](#structural-analysis)
 - [Advanced Usage](#advanced-usage)
   - [Reinforcement Fine-tuning](#reinforcement-fine-tuning)
   - [Writing custom reward functions](#writing-custom-reward-functions)
@@ -282,6 +283,32 @@ python ./scripts/compute_metrics_matbench.py --train_path TRAIN_PATH --test_path
 Note that the training, test, and generated datasets should contain the structures within the **same** space group `g` which is specified in the command `--label`.
 
 More details about post-processing are available in the [scripts](./scripts/README.md) folder.
+
+## Structural Analysis
+
+The `crystalformer.analysis` module provides post-generation tools for evaluating crystal structures — void characterization, layeredness detection, and percolation/channel analysis. All tools are chemistry-agnostic.
+
+```bash
+# Install analysis dependencies
+pip install crystalformer[analysis]
+
+# Analyze generated structures (Voronoi + percolation)
+python -m crystalformer.analysis output_194_struct.csv --r-probe 0.4 --check-percolation
+```
+
+```python
+from crystalformer.analysis import VoronoiAnalyzer, PercolationAnalyzer
+
+va = VoronoiAnalyzer(r_probe=0.4)
+vr = va.analyze(structure)
+# vr.max_void_radius, vr.void_fraction, vr.layeredness_score, vr.interlayer_spacing
+
+pa = PercolationAnalyzer(r_probe=0.4)
+pr = pa.analyze(structure)
+# pr.percolation_dimensionality, pr.percolates_a/b/c, pr.min_bottleneck
+```
+
+For full documentation, API reference, algorithm details, and usage examples, see the [analysis module README](./crystalformer/analysis/README.md).
 
 ## Advanced usage
 
