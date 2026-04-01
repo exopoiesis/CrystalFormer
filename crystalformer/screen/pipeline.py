@@ -71,7 +71,12 @@ class ScreeningPipeline:
             current = [
                 (idx, s) for idx, s in current if filt(s)
             ]
-            stage_counts[filt.name] = len(current)
+            # Avoid overwriting counts when two filters share a name
+            key = filt.name
+            if key in stage_counts:
+                n = sum(1 for k in stage_counts if k.startswith(key))
+                key = f"{key}_{n}"
+            stage_counts[key] = len(current)
 
         indices = [idx for idx, _ in current]
         survivors = [s for _, s in current]

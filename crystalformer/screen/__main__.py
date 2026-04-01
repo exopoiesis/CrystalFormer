@@ -19,11 +19,9 @@ import argparse
 import csv
 import sys
 import time
-from ast import literal_eval
 from pathlib import Path
 
-from pymatgen.core import Structure
-
+from crystalformer.analysis._io import load_structures
 from crystalformer.screen.filters import (
     CompositionFilter,
     DensityFilter,
@@ -32,23 +30,6 @@ from crystalformer.screen.filters import (
     VoronoiFilter,
 )
 from crystalformer.screen.pipeline import ScreeningPipeline
-
-
-def _load_structures(csv_path: str) -> list[tuple[int, Structure]]:
-    """Load structures from a CSV with a ``cif`` column."""
-    structures = []
-    with open(csv_path, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        if "cif" not in (reader.fieldnames or []):
-            print("ERROR: CSV must have a 'cif' column", file=sys.stderr)
-            sys.exit(1)
-        for i, row in enumerate(reader):
-            try:
-                s = Structure.from_dict(literal_eval(row["cif"]))
-                structures.append((i, s))
-            except Exception as exc:  # noqa: BLE001
-                print(f"WARNING: row {i} skipped ({exc})", file=sys.stderr)
-    return structures
 
 
 def _build_filters(args) -> list:
@@ -128,7 +109,7 @@ def main(argv: list[str] | None = None) -> None:
 
     # Load
     print(f"Loading structures from {args.input} ...", file=sys.stderr)
-    entries = _load_structures(args.input)
+    entries = load_structures(args.input)
     print(f"  {len(entries)} structures loaded.", file=sys.stderr)
 
     if not entries:

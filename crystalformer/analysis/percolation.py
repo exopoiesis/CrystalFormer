@@ -14,12 +14,12 @@ Dependencies: pymatgen, scipy, numpy — install via
 """
 
 from dataclasses import dataclass
-from itertools import product
 from typing import Optional
 
 import numpy as np
 from scipy.ndimage import label as ndimage_label
-from scipy.spatial import cKDTree
+
+from crystalformer.analysis._grid import build_distance_grid
 
 
 @dataclass
@@ -68,7 +68,9 @@ class PercolationAnalyzer:
 
     def analyze(self, structure) -> PercolationResult:
         """Analyze a single pymatgen Structure."""
-        distance_grid, grid_shape = self._build_distance_grid(structure)
+        distance_grid, grid_shape = build_distance_grid(
+            structure, self.grid_resolution
+        )
         accessible = distance_grid > self.r_probe
 
         perc_flags, min_btl = self._check_percolation(
@@ -83,41 +85,6 @@ class PercolationAnalyzer:
             percolation_dimensionality=dim,
             min_bottleneck=min_btl,
         )
-
-    # -------------------------------------------------------------- #
-    #  internals                                                       #
-    # -------------------------------------------------------------- #
-
-    def _build_distance_grid(self, structure):
-        """Build distance-to-nearest-atom grid (same as VoronoiAnalyzer)."""
-        lattice = structure.lattice
-        frac_coords = structure.frac_coords
-
-        offsets = np.array(list(product([-1, 0, 1], repeat=3)))
-        sc_frac = np.concatenate(
-            [frac_coords + off for off in offsets], axis=0
-        )
-        sc_cart = lattice.get_cartesian_coords(sc_frac)
-        tree = cKDTree(sc_cart)
-
-        na = max(2, int(np.ceil(lattice.a / self.grid_resolution)))
-        nb = max(2, int(np.ceil(lattice.b / self.grid_resolution)))
-        nc = max(2, int(np.ceil(lattice.c / self.grid_resolution)))
-
-        fa = np.linspace(0, 1, na, endpoint=False)
-        fb = np.linspace(0, 1, nb, endpoint=False)
-        fc = np.linspace(0, 1, nc, endpoint=False)
-        grid_frac = np.stack(
-            np.meshgrid(fa, fb, fc, indexing="ij"), axis=-1
-        )
-
-        grid_cart = lattice.get_cartesian_coords(
-            grid_frac.reshape(-1, 3)
-        )
-
-        distances, _ = tree.query(grid_cart)
-        distance_grid = distances.reshape(na, nb, nc)
-        return distance_grid, (na, nb, nc)
 
     @staticmethod
     def _check_percolation(accessible, distance_grid, grid_shape):

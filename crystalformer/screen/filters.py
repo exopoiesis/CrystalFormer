@@ -51,15 +51,22 @@ class VoronoiFilter(Filter):
 
     Parameters:
         r_min: Minimum max-void-radius (angstrom, default 1.0).
+        r_probe: Probe radius for void-fraction computation (angstrom,
+            default 0.4).  Independent of *r_min*.
         grid_resolution: Grid spacing for the Voronoi analysis.
     """
 
     name = "voronoi"
 
-    def __init__(self, r_min: float = 1.0, grid_resolution: float = 0.25):
+    def __init__(
+        self,
+        r_min: float = 1.0,
+        r_probe: float = 0.4,
+        grid_resolution: float = 0.25,
+    ):
         self.r_min = r_min
         self._analyzer = VoronoiAnalyzer(
-            r_probe=r_min, grid_resolution=grid_resolution
+            r_probe=r_probe, grid_resolution=grid_resolution
         )
 
     def __call__(self, structure) -> bool:
