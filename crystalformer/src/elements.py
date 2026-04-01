@@ -37,6 +37,41 @@ noble_gas = ['He', 'Ne', 'Ar', 'Kr', 'Xe', 'Rn', 'Og']
 noble_gas_dict = {e: element_dict[e] for e in noble_gas}
 
 
+def parse_composition_bias(bias_string, atom_types=119):
+    """Parse a composition bias string into a numeric array.
+
+    Parameters:
+        bias_string: Comma-separated ``Element:weight`` pairs, e.g.
+            ``"Fe:2.0,S:1.5,O:-1.0"``.  Positive weight increases
+            sampling probability; negative decreases.  ``None`` or
+            empty string returns all zeros (no bias).
+        atom_types: Length of the returned array (default 119).
+
+    Returns:
+        numpy array of shape ``(atom_types,)`` with bias values.
+
+    Raises:
+        ValueError: Unknown element symbol or malformed entry.
+    """
+    import numpy as np
+    bias = np.zeros(atom_types)
+    if not bias_string:
+        return bias
+    for item in bias_string.split(","):
+        parts = item.strip().split(":")
+        if len(parts) != 2:
+            raise ValueError(
+                f"Invalid bias format: {item!r}. Expected 'Element:weight'"
+            )
+        element, weight = parts[0].strip(), parts[1].strip()
+        if element not in element_dict:
+            raise ValueError(f"Unknown element: {element!r}")
+        idx = element_dict[element]
+        if idx < atom_types:
+            bias[idx] = float(weight)
+    return bias
+
+
 if __name__=="__main__":
     print (len(element_list))
     print (element_dict["H"])
